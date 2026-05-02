@@ -11,6 +11,11 @@ replay_pid*
 target/
 .mvn/wrapper/maven-wrapper.jar
 build/
+node/
+node_modules/
+dist/
+coverage/
+src/main/webapp/.vite/
 
 # Inclusion Rules
 !**/src/main/**/target/

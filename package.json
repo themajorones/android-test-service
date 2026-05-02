@@ -1,0 +1,27 @@
+{
+  "name": "autotest",
+  "version": "0.0.1-SNAPSHOT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "app:start": "./mvnw",
+    "backend:start": "./mvnw spring-boot:run",
+    "build": "npm run webapp:build",
+    "dev": "vite --host 0.0.0.0",
+    "start": "npm run dev",
+    "webapp:build": "vite build",
+    "webapp:dev": "vite --host 0.0.0.0",
+    "webapp:preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.0.4",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.12"
+  }
+}

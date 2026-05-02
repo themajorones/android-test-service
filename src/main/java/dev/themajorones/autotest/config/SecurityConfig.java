@@ -1,5 +1,7 @@
 package dev.themajorones.autotest.config;
 
+import static org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher.pathPattern;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -21,7 +23,16 @@ public class SecurityConfig {
 
         http.csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/auth/**", "/", "/actuator/**").permitAll()
+                .requestMatchers(
+                    pathPattern("/auth/**"),
+                    pathPattern("/health"),
+                    pathPattern("/"),
+                    pathPattern("/index.html"),
+                    pathPattern("/assets/**"),
+                    pathPattern("/oauth2/**"),
+                    pathPattern("/login/**"),
+                    pathPattern("/actuator/**")
+                ).permitAll()
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth2 -> oauth2
