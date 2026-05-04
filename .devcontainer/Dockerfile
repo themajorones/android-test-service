@@ -1,8 +1,5 @@
 FROM fedora:44
 
-# Set fish as default shell for root
-RUN chsh -s /usr/bin/fish
-
 ENV JAVA_HOME=/usr/lib/jvm/java-25-openjdk
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 

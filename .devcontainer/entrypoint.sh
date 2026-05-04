@@ -9,6 +9,7 @@ if [ ! -f /var/lib/autotest_service_initialized ]; then
     util-linux-user && \
     dnf clean all
     touch /var/lib/autotest_service_initialized
+    chsh -s `which fish`
 fi
 
 # Execute the original command or keep container running
