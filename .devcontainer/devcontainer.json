@@ -1,0 +1,24 @@
+{
+  "name": "Fedora 44 Dev Container",
+  "build": {
+    "context": "..",
+    "dockerfile": "Dockerfile"
+  },
+  "runArgs": [
+    "--network=host"
+  ],
+  "updateContentCommand": "chmod +x mvnw && ./mvnw clean compile",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "redhat.java",
+        "vscjava.vscode-maven",
+        "vscjava.vscode-java-debug",
+        "vscjava.vscode-java-test",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  },
+  "remoteUser": "root"
+}
