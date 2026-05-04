@@ -8,7 +8,6 @@
     "--network=host"
   ],
   "workspaceFolder": "/workspaces/autotest_service",
-  "updateContentCommand": "chmod +x mvnw && ./mvnw clean compile",
   "customizations": {
     "vscode": {
       "settings": {
