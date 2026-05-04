@@ -7,9 +7,13 @@
   "runArgs": [
     "--network=host"
   ],
+  "workspaceFolder": "/workspaces/autotest_service",
   "updateContentCommand": "chmod +x mvnw && ./mvnw clean compile",
   "customizations": {
     "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "fish"
+      },
       "extensions": [
         "redhat.java",
         "vscjava.vscode-maven",
