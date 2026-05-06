@@ -2,7 +2,9 @@ spring:
   application:
     name: autotest
   config:
-    import: optional:file:.env[.properties]
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:android_test_service/.env[.properties]
   datasource:
     url: ${DATABASE_URL}
     username: ${DATABASE_USERNAME}
