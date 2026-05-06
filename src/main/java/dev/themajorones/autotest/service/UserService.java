@@ -1,7 +1,7 @@
 package dev.themajorones.autotest.service;
 
 import java.time.Instant;
-
+import java.util.Optional;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 import dev.themajorones.autotest.repository.AuthenticationRepository;
@@ -19,9 +19,9 @@ public class UserService {
     private final AuthenticationRepository authenticationRepository;
 
     public UserService(
-            UserRepository userRepository,
-            ImageRepository imageRepository,
-            AuthenticationRepository authenticationRepository
+        UserRepository userRepository,
+        ImageRepository imageRepository,
+        AuthenticationRepository authenticationRepository
     ) {
         this.userRepository = userRepository;
         this.imageRepository = imageRepository;
@@ -29,39 +29,32 @@ public class UserService {
     }
 
     @Transactional
-    public User saveOrUpdateUser(
-            String githubId,
-            String username,
-            String avatarUrl,
-            String accessToken,
-            Instant accessTokenExpiresAt,
-            String refreshToken,
-            Instant refreshTokenExpiresAt
-    ) {
-        var existingUser = userRepository.findByGithubId(githubId);
-        Image avatar = saveOrFindAvatar(avatarUrl);
-        Authentication savedAccessToken = saveAuthentication(accessToken, accessTokenExpiresAt);
+    public User saveOrUpdateUser(User user) {
+        Optional<User> existingUser = userRepository.findByGithubId(user.getGithubId());
+        Image avatar = saveOrFindAvatar(user.getAvatar().getUrl());
+        Authentication savedAccessToken = saveAuthentication(user.getAccessToken().getContent(), Instant.ofEpochMilli(user.getAccessToken().getExpireAt()));
         Authentication savedRefreshToken = saveAuthentication(
-            refreshToken != null ? refreshToken : "",
-            refreshTokenExpiresAt != null ? refreshTokenExpiresAt : accessTokenExpiresAt
+            user.getRefreshToken() != null ? user.getRefreshToken().getContent() : "",
+            user.getRefreshToken() != null ? Instant.ofEpochMilli(user.getRefreshToken().getExpireAt()) : Instant.ofEpochMilli(user.getAccessToken().getExpireAt())
         );
 
+        User memoryUser = new User();
+
         if (existingUser.isPresent()) {
-            User user = existingUser.get();
-            user.setUsername(username);
-            user.setAvatar(avatar);
-            user.setAccessToken(savedAccessToken);
-            user.setRefreshToken(savedRefreshToken);
-            return userRepository.save(user);
+            memoryUser = existingUser.get();
+            memoryUser.setUsername(user.getUsername());
+            memoryUser.setAvatar(avatar);
+            memoryUser.setAccessToken(savedAccessToken);
+            memoryUser.setRefreshToken(savedRefreshToken);
         } else {
-            User newUser = new User();
-            newUser.setGithubId(githubId);
-            newUser.setUsername(username);
-            newUser.setAvatar(avatar);
-            newUser.setAccessToken(savedAccessToken);
-            newUser.setRefreshToken(savedRefreshToken);
-            return userRepository.save(newUser);
+            memoryUser = new User();
+            memoryUser.setGithubId(user.getGithubId());
+            memoryUser.setUsername(user.getUsername());
+            memoryUser.setAvatar(avatar);
+            memoryUser.setAccessToken(savedAccessToken);
+            memoryUser.setRefreshToken(savedRefreshToken);
         }
+        return userRepository.save(memoryUser);
     }
 
     private Image saveOrFindAvatar(String avatarUrl) {
