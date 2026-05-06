@@ -25,7 +25,7 @@ jobs:
         run: ./mvnw clean package -B
 
       - name: Upload WAR artifact
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: autotest-build-artifacts
