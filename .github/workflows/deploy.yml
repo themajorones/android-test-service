@@ -83,7 +83,6 @@ jobs:
               
               # Always stop/restart
               sudo systemctl stop ats || true
-              sudo cp app.war server.war
               sudo systemctl start ats
               sleep 3
               sudo systemctl status ats
