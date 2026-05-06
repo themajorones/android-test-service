@@ -6,6 +6,10 @@ on:
     types: [completed]
     branches: [main]
 
+permissions:
+  actions: read
+  contents: read
+
 env:
   DEPLOY_USER: zeryus
   DEPLOY_PATH: /opt/ats
