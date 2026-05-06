@@ -4,12 +4,12 @@ import java.time.Instant;
 
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
-import dev.themajorones.autotest.entity.Authentication;
-import dev.themajorones.autotest.entity.Image;
-import dev.themajorones.autotest.entity.User;
 import dev.themajorones.autotest.repository.AuthenticationRepository;
 import dev.themajorones.autotest.repository.ImageRepository;
 import dev.themajorones.autotest.repository.UserRepository;
+import dev.themajorones.models.entity.Authentication;
+import dev.themajorones.models.entity.Image;
+import dev.themajorones.models.entity.User;
 
 @Service
 public class UserService {
@@ -28,9 +28,6 @@ public class UserService {
         this.authenticationRepository = authenticationRepository;
     }
 
-    /**
-     * Save or update user in database based on GitHub OAuth data
-     */
     @Transactional
     public User saveOrUpdateUser(
             String githubId,
@@ -83,17 +80,4 @@ public class UserService {
         return authenticationRepository.save(authentication);
     }
 
-    /**
-     * Find user by GitHub ID
-     */
-    public User findByGithubId(String githubId) {
-        return userRepository.findByGithubId(githubId).orElse(null);
-    }
-
-    /**
-     * Find user by username
-     */
-    public User findByUsername(String username) {
-        return userRepository.findByUsername(username).orElse(null);
-    }
 }

@@ -115,6 +115,11 @@
 			<artifactId>spring-dotenv</artifactId>
 			<version>2.5.4</version>
 		</dependency>
+		<dependency>
+			<groupId>dev.themajorones</groupId>
+			<artifactId>models</artifactId>
+			<version>0.0.1-SNAPSHOT</version>
+		</dependency>
 	</dependencies>
 	<build>
 		<plugins>
