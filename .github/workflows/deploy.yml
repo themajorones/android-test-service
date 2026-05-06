@@ -13,82 +13,82 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: ${{github.event.workflow_run.conclusion == 'success'}}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
-  steps:
-    - name: Download WAR artifact
-      uses: dawidd6/action-download-artifact@v3
-      with:
-        workflow: ["Maven Build & Package"]
-        branch: main
-        name: autotest-build-artifacts
-        path: ./
+    steps:
+      - name: Download WAR artifact
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: Maven Build & Package
+          branch: main
+          name: autotest-build-artifacts
+          path: ./
 
-    - name : Rename WAR file
-      run: |
-        ls -la *.war
-        mv $(ls *war | head -1) server.war
+      - name: Rename WAR file
+        run: |
+          ls -la *.war
+          mv $(ls *war | head -1) server.war
 
-    - name : Transfer WAR file to host server
-      uses: appleboy/scp-action@master
-      with:
-        host: ${{ secrets.DEPLOY_HOST }}
-        username: ${{ env.DEPLOY_USER }}
-        key: ${{ secrets.DEPLOY_KEY }}
-        port: 9090
-        source: "server.war"
-        target: "${{ env.DEPLOY_PATH }}/"
-      
-    - name: Deploy WAR file and restart systemd service
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.DEPLOY_HOST }}
-        username: ${{ env.DEPLOY_USER }}
-        key: ${{ secrets.DEPLOY_KEY }}
-        port: 9090
-        script: |
-          cd ${{ env.DEPLOY_PATH }}
-          /usr/lib/jvm/java-25-openjdk/bin/java \
-          --add-opens java.base/java.util.concurrent=ALL-UNNAMED \
-          -Xmx1g \
-          -Dserver.port=8080 \
-          jar /opt/ats/server.war > server.log 2>&1 &
-          
-          # Create service file ONLY if it doesn't exist
-            if [ ! -f /etc/systemd/system/ats.service ]; then
-              sudo tee /etc/systemd/system/ats.service > /dev/null <<'EOF'
-            [Unit]
-            Description=ATS Spring Boot Service
-            After=network.target
+      - name: Transfer WAR file to host server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: 9090
+          source: "server.war"
+          target: "${{ env.DEPLOY_PATH }}/"
 
-            [Service]
-            User=${{ secrets.SERVER_USER }}
-            WorkingDirectory=/opt/ats
-            ExecStart=/usr/lib/jvm/java-25-openjdk/bin/java \
-              --add-opens java.base/java.util.concurrent=ALL-UNNAMED \
-              -Xmx1g \
-              -Dserver.port=8882 \
-              -jar /opt/ats/server.war
-            SuccessExitStatus=143
-            Restart=always
-            RestartSec=5
+      - name: Deploy WAR file and restart systemd service
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: 9090
+          script: |
+            cd ${{ env.DEPLOY_PATH }}
+            /usr/lib/jvm/java-25-openjdk/bin/java \
+            --add-opens java.base/java.util.concurrent=ALL-UNNAMED \
+            -Xmx1g \
+            -Dserver.port=8080 \
+            -jar /opt/ats/server.war > server.log 2>&1 &
 
-            [Install]
-            WantedBy=multi-user.target
-            EOF
+            # Create service file ONLY if it doesn't exist
+              if [ ! -f /etc/systemd/system/ats.service ]; then
+                sudo tee /etc/systemd/system/ats.service > /dev/null <<'EOF'
+              [Unit]
+              Description=ATS Spring Boot Service
+              After=network.target
+
+              [Service]
+              User=${{ secrets.SERVER_USER }}
+              WorkingDirectory=/opt/ats
+              ExecStart=/usr/lib/jvm/java-25-openjdk/bin/java \
+                --add-opens java.base/java.util.concurrent=ALL-UNNAMED \
+                -Xmx1g \
+                -Dserver.port=8080 \
+                -jar /opt/ats/server.war
+              SuccessExitStatus=143
+              Restart=always
+              RestartSec=5
+
+              [Install]
+              WantedBy=multi-user.target
+              EOF
+                
+                sudo systemctl daemon-reload
+                sudo systemctl enable ats
+              fi
               
-              sudo systemctl daemon-reload
-              sudo systemctl enable ats
-            fi
-            
-            # Always stop/restart
-            sudo systemctl stop ats || true
-            sudo cp app.war server.war
-            sudo systemctl start ats
-            sleep 3
-            sudo systemctl status ats
+              # Always stop/restart
+              sudo systemctl stop ats || true
+              sudo cp app.war server.war
+              sudo systemctl start ats
+              sleep 3
+              sudo systemctl status ats
 
-    - name: Health check
-      run: |
-            sleep 5
-            curl -f http://${{ secrets.DEPLOY_HOST }}:8080/health || exit 1
+      - name: Health check
+        run: |
+          sleep 5
+          curl -f http://${{ secrets.DEPLOY_HOST }}:8080/health || exit 1
