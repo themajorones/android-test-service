@@ -2,9 +2,7 @@ name: Maven Build & Package
 
 on:
   push:
-    branches: [main, dev, githubOauth2]
-  pull_request:
-    branches: [main, dev]
+    branches: [main]
 
 jobs:
   build:
@@ -19,7 +17,10 @@ jobs:
           java-version: "25"
           distribution: "temurin"
           cache: maven
-
+      - name: install custom local model
+        run: |
+          git clone https://github.com/themajorones/models.git
+          cd models && mvn clean install
       - name: Build with Maven
         run: ./mvnw clean package -B
 
@@ -29,12 +30,4 @@ jobs:
         with:
           name: autotest-build-artifacts
           path: target/*.war
-          retention-days: 30
-
-      - name: Publish Test Results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: target/surefire-reports/
           retention-days: 30
