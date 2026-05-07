@@ -63,83 +63,105 @@ jobs:
       CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download WAR artifact
         uses: actions/download-artifact@v4
         with:
           name: autotest-build-artifacts
-          path: ./
+          path: ./artifact
 
-      - name: Verify Downloaded Artifact
+      - name: Resolve WAR artifact
+        shell: bash
         run: |
-          ls -l *.war || (echo "WAR not downloaded!" && exit 1)
+          set -euo pipefail
 
-      - name: Rename WAR file
-        run: |
-          ls -la *.war
-          mv $(ls *war | head -1) server.war
+          ARTIFACT_DIR="./artifact"
+          WAR_FILE="$(find "$ARTIFACT_DIR" -type f -name '*.war' | head -n 1 || true)"
 
-      - name: Deploy WAR and start service
-        run: |
-          CURRENT_USER=$(whoami)
-          SERVICE_NAME="ats-app"
-          SERVICE_DIR="$HOME/.config/systemd/user"
-          
-          echo "Running as: $CURRENT_USER"
-          
-          # Create systemd service directory
-          mkdir -p "$SERVICE_DIR"
-          mkdir -p ${{ env.DEPLOY_PATH }}
-          
-          # Copy WAR file
-          cp server.war ${{ env.DEPLOY_PATH }}/
-          
-          # Create systemd user service file
-          cat > "$SERVICE_DIR/$SERVICE_NAME.service" << 'EOF'
-          [Unit]
-          Description=Android Test Service Application
-          After=network.target
-          
-          [Service]
-          Type=simple
-          WorkingDirectory=${{ env.DEPLOY_PATH }}
-          ExecStart=/usr/lib/jvm/java-25-openjdk/bin/java \
-            --add-opens java.base/java.util.concurrent=ALL-UNNAMED \
-            -Xmx1g \
-            -Dserver.port=8080 \
-            -jar server.war
-          Restart=on-failure
-          RestartSec=5
-          StandardOutput=journal
-          StandardError=journal
-          
-          [Install]
-          WantedBy=default.target
-          EOF
-          
-          # Reload systemd daemon and enable service
-          systemctl --user daemon-reload
-          systemctl --user enable "$SERVICE_NAME.service"
-          
-          # Stop existing service if running
-          systemctl --user stop "$SERVICE_NAME.service" || true
-          sleep 2
-          
-          # Start the service
-          systemctl --user start "$SERVICE_NAME.service"
-          sleep 3
-          
-          # Check service status
-          if systemctl --user is-active --quiet "$SERVICE_NAME.service"; then
-            echo "Application started successfully via systemd"
-            systemctl --user status "$SERVICE_NAME.service"
-          else
-            echo "Failed to start application"
-            systemctl --user status "$SERVICE_NAME.service"
-            journalctl --user -u "$SERVICE_NAME.service" -n 20
+          if [ -z "$WAR_FILE" ]; then
+            ARCHIVE_FILE="$(find "$ARTIFACT_DIR" -type f \( -name '*.zip' -o -name '*.tar' -o -name '*.tar.gz' -o -name '*.tgz' \) | head -n 1 || true)"
+
+            if [ -z "$ARCHIVE_FILE" ]; then
+              echo "No WAR or archive found in downloaded artifact"
+              find "$ARTIFACT_DIR" -maxdepth 3 -type f
+              exit 1
+            fi
+
+            EXTRACTION_DIR="$(mktemp -d)"
+            case "$ARCHIVE_FILE" in
+              *.zip)
+                unzip -q "$ARCHIVE_FILE" -d "$EXTRACTION_DIR"
+                ;;
+              *.tar)
+                tar -xf "$ARCHIVE_FILE" -C "$EXTRACTION_DIR"
+                ;;
+              *.tar.gz|*.tgz)
+                tar -xzf "$ARCHIVE_FILE" -C "$EXTRACTION_DIR"
+                ;;
+            esac
+
+            WAR_FILE="$(find "$EXTRACTION_DIR" -type f -name '*.war' | head -n 1 || true)"
+          fi
+
+          if [ -z "$WAR_FILE" ]; then
+            echo "Unable to locate a WAR file after artifact resolution"
             exit 1
           fi
 
-      - name: Health check
+          cp "$WAR_FILE" ./server.war
+          ls -lh ./server.war
+
+      - name: Build Docker image
+        shell: bash
         run: |
-          sleep 5
-          curl -f http://localhost:8080/health || exit 1
+          set -euo pipefail
+          docker build \
+            --pull \
+            --build-arg WAR_FILE=server.war \
+            -t ats-app:${GITHUB_SHA} \
+            -t ats-app:latest \
+            .
+
+      - name: Deploy Docker container
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CONTAINER_NAME="ats-app"
+          IMAGE_NAME="ats-app:${GITHUB_SHA}"
+
+          docker rm -f "$CONTAINER_NAME" || true
+
+          ENV_FILE="${{ env.DEPLOY_PATH }}/.env"
+          ENV_FILE_ARGS=()
+          if [ -f "$ENV_FILE" ]; then
+            ENV_FILE_ARGS+=(--env-file "$ENV_FILE")
+          fi
+
+          docker run -d \
+            --name "$CONTAINER_NAME" \
+            --network host \
+            "${ENV_FILE_ARGS[@]}" \
+            -e DATABASE_URL \
+            -e DATABASE_USERNAME \
+            -e DATABASE_PASSWORD \
+            -e CLIENT_ID \
+            -e CLIENT_SECRET \
+            -e ENCRYPTION_PASSWORD \
+            -e ENCRYPTION_SALT \
+            --restart unless-stopped \
+            "$IMAGE_NAME"
+
+      - name: Health check
+        shell: bash
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs ats-app --tail 200
+          exit 1
