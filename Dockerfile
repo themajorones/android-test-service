@@ -27,9 +27,9 @@ RUN set -eux; \
 
 USER appuser
 
-EXPOSE 8080
+EXPOSE 7000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD curl -fsS http://localhost:8080/health || exit 1
+  CMD curl -fsS http://localhost:7000/health || exit 1
 
-ENTRYPOINT ["java", "--add-opens", "java.base/java.util.concurrent=ALL-UNNAMED", "-Xmx1g", "-Dserver.port=8080", "-jar", "/app/server.war"]
+ENTRYPOINT ["java", "--add-opens", "java.base/java.util.concurrent=ALL-UNNAMED", "-Xmx1g", "-Dserver.port=7000", "-jar", "/app/server.war"]

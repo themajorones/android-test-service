@@ -7,10 +7,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/auth': 'http://localhost:8080',
-      '/health': 'http://localhost:8080',
-      '/oauth2': 'http://localhost:8080',
-      '/login': 'http://localhost:8080',
+      '/auth': 'http://localhost:7000',
+      '/health': 'http://localhost:7000',
+      '/oauth2': 'http://localhost:7000',
+      '/login': 'http://localhost:7000',
     },
   },
   build: {

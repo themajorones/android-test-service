@@ -27,6 +27,9 @@ spring:
             user-info-uri: https://api.github.com/user
             user-name-attribute: id
 
+server:
+  port: 7000
+
 security:
   encryption:
     password: ${ENCRYPTION_PASSWORD}
