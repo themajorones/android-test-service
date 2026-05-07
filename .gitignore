@@ -57,3 +57,4 @@ src/main/webapp/.vite/
 ### VS Code ###
 .vscode/
 .env
+.env.example

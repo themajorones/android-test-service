@@ -1,7 +1,7 @@
 # Runtime stage
 FROM fedora:44
 
-RUN dnf -y install java-52-openjdk-devel maven
+RUN dnf -y install java-25-openjdk-devel maven
 
 WORKDIR /app
 
