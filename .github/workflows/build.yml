@@ -81,31 +81,61 @@ jobs:
       - name: Deploy WAR and start service
         run: |
           CURRENT_USER=$(whoami)
+          SERVICE_NAME="ats-app"
+          SERVICE_DIR="$HOME/.config/systemd/user"
+          
           echo "Running as: $CURRENT_USER"
           
+          # Create systemd service directory
+          mkdir -p "$SERVICE_DIR"
           mkdir -p ${{ env.DEPLOY_PATH }}
+          
+          # Copy WAR file
           cp server.war ${{ env.DEPLOY_PATH }}/
           
-          # Kill any existing Java process
-          pkill -f "java.*ats/server.war" || true
-          sleep 2
+          # Create systemd user service file
+          cat > "$SERVICE_DIR/$SERVICE_NAME.service" << 'EOF'
+          [Unit]
+          Description=Android Test Service Application
+          After=network.target
           
-          # Start the application in background
-          cd ${{ env.DEPLOY_PATH }}
-          /usr/lib/jvm/java-25-openjdk/bin/java \
+          [Service]
+          Type=simple
+          WorkingDirectory=${{ env.DEPLOY_PATH }}
+          ExecStart=/usr/lib/jvm/java-25-openjdk/bin/java \
             --add-opens java.base/java.util.concurrent=ALL-UNNAMED \
             -Xmx1g \
             -Dserver.port=8080 \
-            -jar server.war > server.log 2>&1 &
+            -jar server.war
+          Restart=on-failure
+          RestartSec=5
+          StandardOutput=journal
+          StandardError=journal
           
-          echo $! > app.pid
+          [Install]
+          WantedBy=default.target
+          EOF
+          
+          # Reload systemd daemon and enable service
+          systemctl --user daemon-reload
+          systemctl --user enable "$SERVICE_NAME.service"
+          
+          # Stop existing service if running
+          systemctl --user stop "$SERVICE_NAME.service" || true
+          sleep 2
+          
+          # Start the service
+          systemctl --user start "$SERVICE_NAME.service"
           sleep 3
           
-          if ps -p $(cat app.pid) > /dev/null; then
-            echo "Application started successfully (PID: $(cat app.pid))"
+          # Check service status
+          if systemctl --user is-active --quiet "$SERVICE_NAME.service"; then
+            echo "Application started successfully via systemd"
+            systemctl --user status "$SERVICE_NAME.service"
           else
             echo "Failed to start application"
-            cat server.log
+            systemctl --user status "$SERVICE_NAME.service"
+            journalctl --user -u "$SERVICE_NAME.service" -n 20
             exit 1
           fi
 
