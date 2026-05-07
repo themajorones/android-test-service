@@ -6,10 +6,9 @@ import org.springframework.stereotype.Repository;
 import dev.themajorones.models.entity.GitHubUser;
 
 @Repository
-public interface UserRepository extends JpaRepository<GitHubUser, Integer> {
-    
-    Optional<GitHubUser> findByGithubId(String githubId);
+public interface GitHubUserRepository extends JpaRepository<GitHubUser, Integer> {
 
-    Optional<GitHubUser> findByUsername(String username);
+    Optional<GitHubUser> findByOwnerGithubId(Long githubId);
 
+    Optional<GitHubUser> findByOwnerLogin(String login);
 }

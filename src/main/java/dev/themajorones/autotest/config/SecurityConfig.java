@@ -6,6 +6,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+
 import dev.themajorones.autotest.security.CustomOAuth2FailureHandler;
 
 @Configuration
@@ -14,9 +15,9 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(
-            HttpSecurity http,
-            CustomOAuth2SuccessHandler successHandler,
-            CustomOAuth2FailureHandler failureHandler
+        HttpSecurity http,
+        CustomOAuth2SuccessHandler successHandler,
+        CustomOAuth2FailureHandler failureHandler
     ) throws Exception {
 
         http.csrf(csrf -> csrf.disable())

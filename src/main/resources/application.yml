@@ -11,7 +11,7 @@ spring:
     password: ${DATABASE_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
   security:
     oauth2:
       client:
@@ -19,7 +19,7 @@ spring:
           github:
             client-id: ${CLIENT_ID}
             client-secret: ${CLIENT_SECRET}
-            scope: read:user,user:email,repo,read:org
+            scope: read:user,repo,read:org
         provider:
           github:
             authorization-uri: https://github.com/login/oauth/authorize
