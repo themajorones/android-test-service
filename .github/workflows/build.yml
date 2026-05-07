@@ -8,7 +8,6 @@ on:
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-  DEPLOY_USER: zeryus
   DEPLOY_PATH: /opt/ats
 
 jobs:
@@ -65,43 +64,36 @@ jobs:
           ls -la *.war
           mv $(ls *war | head -1) server.war
 
-      - name: Deploy WAR and restart service
+      - name: Deploy WAR and start service
         run: |
-          mkdir -p /opt/ats
-          cp server.war /opt/ats/
+          CURRENT_USER=$(whoami)
+          echo "Running as: $CURRENT_USER"
           
-          # Create user service file if it doesn't exist
-          mkdir -p ~/.config/systemd/user
-          if [ ! -f ~/.config/systemd/user/ats.service ]; then
-            cat > ~/.config/systemd/user/ats.service <<'EOF'
-          [Unit]
-          Description=ATS Spring Boot Service
-          After=network.target
-
-          [Service]
-          WorkingDirectory=/opt/ats
-          ExecStart=/usr/lib/jvm/java-25-openjdk/bin/java \
+          mkdir -p ${{ env.DEPLOY_PATH }}
+          cp server.war ${{ env.DEPLOY_PATH }}/
+          
+          # Kill any existing Java process
+          pkill -f "java.*ats/server.war" || true
+          sleep 2
+          
+          # Start the application in background
+          cd ${{ env.DEPLOY_PATH }}
+          /usr/lib/jvm/java-25-openjdk/bin/java \
             --add-opens java.base/java.util.concurrent=ALL-UNNAMED \
             -Xmx1g \
             -Dserver.port=8080 \
-            -jar /opt/ats/server.war
-          SuccessExitStatus=143
-          Restart=always
-          RestartSec=5
-
-          [Install]
-          WantedBy=default.target
-          EOF
-            
-            systemctl --user daemon-reload
-            systemctl --user enable ats
-          fi
+            -jar server.war > server.log 2>&1 &
           
-          # Stop/restart service
-          systemctl --user stop ats || true
-          systemctl --user start ats
+          echo $! > app.pid
           sleep 3
-          systemctl --user status ats
+          
+          if ps -p $(cat app.pid) > /dev/null; then
+            echo "Application started successfully (PID: $(cat app.pid))"
+          else
+            echo "Failed to start application"
+            cat server.log
+            exit 1
+          fi
 
       - name: Health check
         run: |
