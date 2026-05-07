@@ -45,7 +45,8 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: devnode
+    runs-on:
+      group: deploy
     if: success()
 
     steps:
