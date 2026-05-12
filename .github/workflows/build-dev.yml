@@ -1,0 +1,137 @@
+name: Build & Deploy Dev
+
+on:
+  push:
+    branches:
+      - dev
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+  DEPLOY_PATH: /opt/ats
+  APP_PORT: 6000
+  SPRING_PROFILE: dev
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: "25"
+          distribution: "temurin"
+          cache: maven
+
+      - name: install custom local model
+        run: |
+          git clone https://github.com/themajorones/models.git
+          cd models && mvn clean install
+
+      - name: Build with Maven
+        run: ./mvnw clean package -B
+
+      - name: Verify WAR
+        run: |
+          ls -l target/*.war
+
+      - name: Upload WAR artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autotest-build-artifacts-dev
+          path: target/*.war
+          retention-days: 30
+
+  deploy:
+    needs: build
+    runs-on:
+      group: deploy
+    if: success()
+
+    env:
+      CLIENT_ID: ${{ secrets.CLIENT_ID }}
+      CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+      ENCRYPTION_PASSWORD: ${{ secrets.ENCRYPTION_PASSWORD }}
+      ENCRYPTION_SALT: ${{ secrets.ENCRYPTION_SALT }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download WAR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: autotest-build-artifacts-dev
+          path: ./artifact
+
+      - name: Resolve WAR artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ARTIFACT_DIR="./artifact"
+          WAR_FILE="$(find "$ARTIFACT_DIR" -type f -name '*.war' | head -n 1 || true)"
+
+          if [ -z "$WAR_FILE" ]; then
+            echo "Unable to locate a WAR file after artifact resolution"
+            find "$ARTIFACT_DIR" -maxdepth 3 -type f
+            exit 1
+          fi
+
+          cp "$WAR_FILE" ./server.war
+          ls -lh ./server.war
+
+      - name: Build Docker image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build \
+            --pull \
+            --file .github/workflows/Dockerfile.dev \
+            --build-arg WAR_FILE=server.war \
+            -t ats-app-dev:${GITHUB_SHA} \
+            -t ats-app-dev:latest \
+            .
+
+      - name: Deploy Docker container
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CONTAINER_NAME="ats-app-dev"
+          IMAGE_NAME="ats-app-dev:${GITHUB_SHA}"
+
+          docker rm -f "$CONTAINER_NAME" || true
+
+          ENV_FILE="${{ env.DEPLOY_PATH }}/.env"
+          ENV_FILE_ARGS=()
+          if [ -f "$ENV_FILE" ]; then
+            ENV_FILE_ARGS+=(--env-file "$ENV_FILE")
+          fi
+
+          docker run -d \
+            --name "$CONTAINER_NAME" \
+            -p "${APP_PORT}:${APP_PORT}" \
+            "${ENV_FILE_ARGS[@]}" \
+            -e SPRING_PROFILES_ACTIVE="${SPRING_PROFILE}" \
+            -e CLIENT_ID \
+            -e CLIENT_SECRET \
+            -e ENCRYPTION_PASSWORD \
+            -e ENCRYPTION_SALT \
+            --restart unless-stopped \
+            "$IMAGE_NAME"
+
+      - name: Health check
+        shell: bash
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 30); do
+            if curl -fsS "http://localhost:${APP_PORT}/health"; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs ats-app-dev --tail 200
+          exit 1

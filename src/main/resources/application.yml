@@ -1,14 +1,12 @@
 spring:
   application:
     name: autotest
+  profiles:
+    default: dev
   config:
     import:
       - optional:file:.env[.properties]
       - optional:file:android_test_service/.env[.properties]
-  datasource:
-    url: ${DATABASE_URL}
-    username: ${DATABASE_USERNAME}
-    password: ${DATABASE_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: update
@@ -26,9 +24,6 @@ spring:
             token-uri: https://github.com/login/oauth/access_token
             user-info-uri: https://api.github.com/user
             user-name-attribute: id
-
-server:
-  port: 7000
 
 security:
   encryption:

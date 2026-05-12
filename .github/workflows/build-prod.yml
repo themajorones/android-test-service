@@ -1,14 +1,15 @@
-name: Build & Deploy
+name: Build & Deploy Prod
 
 on:
   push:
-    branches: 
+    branches:
       - main
-      - cd/zeryus/deploy
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
   DEPLOY_PATH: /opt/ats
+  APP_PORT: 7000
+  SPRING_PROFILE: prod
 
 jobs:
   build:
@@ -30,10 +31,12 @@ jobs:
           java-version: "25"
           distribution: "temurin"
           cache: maven
+
       - name: install custom local model
         run: |
           git clone https://github.com/themajorones/models.git
           cd models && mvn clean install
+
       - name: Build with Maven
         run: ./mvnw clean package -B
 
@@ -45,7 +48,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: autotest-build-artifacts
+          name: autotest-build-artifacts-prod
           path: target/*.war
           retention-days: 30
 
@@ -61,6 +64,8 @@ jobs:
       DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
       CLIENT_ID: ${{ secrets.CLIENT_ID }}
       CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+      ENCRYPTION_PASSWORD: ${{ secrets.ENCRYPTION_PASSWORD }}
+      ENCRYPTION_SALT: ${{ secrets.ENCRYPTION_SALT }}
 
     steps:
       - uses: actions/checkout@v4
@@ -68,7 +73,7 @@ jobs:
       - name: Download WAR artifact
         uses: actions/download-artifact@v4
         with:
-          name: autotest-build-artifacts
+          name: autotest-build-artifacts-prod
           path: ./artifact
 
       - name: Resolve WAR artifact
@@ -80,32 +85,8 @@ jobs:
           WAR_FILE="$(find "$ARTIFACT_DIR" -type f -name '*.war' | head -n 1 || true)"
 
           if [ -z "$WAR_FILE" ]; then
-            ARCHIVE_FILE="$(find "$ARTIFACT_DIR" -type f \( -name '*.zip' -o -name '*.tar' -o -name '*.tar.gz' -o -name '*.tgz' \) | head -n 1 || true)"
-
-            if [ -z "$ARCHIVE_FILE" ]; then
-              echo "No WAR or archive found in downloaded artifact"
-              find "$ARTIFACT_DIR" -maxdepth 3 -type f
-              exit 1
-            fi
-
-            EXTRACTION_DIR="$(mktemp -d)"
-            case "$ARCHIVE_FILE" in
-              *.zip)
-                unzip -q "$ARCHIVE_FILE" -d "$EXTRACTION_DIR"
-                ;;
-              *.tar)
-                tar -xf "$ARCHIVE_FILE" -C "$EXTRACTION_DIR"
-                ;;
-              *.tar.gz|*.tgz)
-                tar -xzf "$ARCHIVE_FILE" -C "$EXTRACTION_DIR"
-                ;;
-            esac
-
-            WAR_FILE="$(find "$EXTRACTION_DIR" -type f -name '*.war' | head -n 1 || true)"
-          fi
-
-          if [ -z "$WAR_FILE" ]; then
             echo "Unable to locate a WAR file after artifact resolution"
+            find "$ARTIFACT_DIR" -maxdepth 3 -type f
             exit 1
           fi
 
@@ -118,6 +99,7 @@ jobs:
           set -euo pipefail
           docker build \
             --pull \
+            --file .github/workflows/Dockerfile.prod \
             --build-arg WAR_FILE=server.war \
             -t ats-app:${GITHUB_SHA} \
             -t ats-app:latest \
@@ -141,8 +123,9 @@ jobs:
 
           docker run -d \
             --name "$CONTAINER_NAME" \
-            -p 7000:7000 \
+            -p "${APP_PORT}:${APP_PORT}" \
             "${ENV_FILE_ARGS[@]}" \
+            -e SPRING_PROFILES_ACTIVE="${SPRING_PROFILE}" \
             -e DATABASE_URL \
             -e DATABASE_USERNAME \
             -e DATABASE_PASSWORD \
@@ -158,7 +141,7 @@ jobs:
         run: |
           set -euo pipefail
           for _ in $(seq 1 30); do
-            if curl -fsS http://localhost:7000/health; then
+            if curl -fsS "http://localhost:${APP_PORT}/health"; then
               exit 0
             fi
             sleep 2
