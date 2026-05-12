@@ -15,6 +15,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      CLIENT_ID: ${{ secrets.CLIENT_ID_DEV }}
+      CLIENT_SECRET: ${{ secrets.CLIENT_SECRET_DEV }}
     steps:
       - uses: actions/checkout@v4
 
@@ -52,8 +55,8 @@ jobs:
     if: success()
 
     env:
-      CLIENT_ID: ${{ secrets.CLIENT_ID }}
-      CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+      CLIENT_ID: ${{ secrets.CLIENT_ID_DEV }}
+      CLIENT_SECRET: ${{ secrets.CLIENT_SECRET_DEV }}
       ENCRYPTION_PASSWORD: ${{ secrets.ENCRYPTION_PASSWORD }}
       ENCRYPTION_SALT: ${{ secrets.ENCRYPTION_SALT }}
 
