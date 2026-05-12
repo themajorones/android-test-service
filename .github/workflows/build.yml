@@ -141,7 +141,7 @@ jobs:
 
           docker run -d \
             --name "$CONTAINER_NAME" \
-            --network host \
+            -p 7000:7000 \
             "${ENV_FILE_ARGS[@]}" \
             -e DATABASE_URL \
             -e DATABASE_USERNAME \
