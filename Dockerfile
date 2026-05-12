@@ -3,7 +3,6 @@ FROM fedora:44
 ARG WAR_FILE=server.war
 
 RUN set -eux; \
-    dnf -y upgrade --refresh; \
     curl -fsSL https://rpm.nodesource.com/setup_22.x | bash -; \
     dnf -y install \
       java-25-openjdk-headless \
