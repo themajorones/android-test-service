@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - dev
+      - feat/phongpt/build-optimization
 
 concurrency:
   group: build-deploy-dev
