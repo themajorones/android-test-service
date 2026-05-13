@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: build-deploy-prod
+  cancel-in-progress: true
+
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
   DEPLOY_PATH: /opt/ats
@@ -24,6 +28,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -32,13 +38,27 @@ jobs:
           distribution: "temurin"
           cache: maven
 
-      - name: install custom local model
+      - name: Resolve models revision
+        id: models-revision
         run: |
-          git clone https://github.com/themajorones/models.git
-          cd models && mvn clean install
+          echo "sha=$(git ls-remote https://github.com/themajorones/models.git HEAD | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache installed models artifact
+        id: cache-models
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/dev/themajorones
+          key: ${{ runner.os }}-models-${{ steps.models-revision.outputs.sha }}
+
+      - name: Install custom local model
+        if: steps.cache-models.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/themajorones/models.git
+          cd models
+          ./mvnw -B -ntp install -DskipTests
 
       - name: Build with Maven
-        run: ./mvnw clean package -B
+        run: ./mvnw -B -ntp package
 
       - name: Verify WAR
         run: |
@@ -50,6 +70,7 @@ jobs:
         with:
           name: autotest-build-artifacts-prod
           path: target/*.war
+          compression-level: 0
           retention-days: 30
 
   deploy:
@@ -69,6 +90,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Download WAR artifact
         uses: actions/download-artifact@v4
