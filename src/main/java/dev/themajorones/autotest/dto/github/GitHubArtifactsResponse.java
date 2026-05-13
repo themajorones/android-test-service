@@ -2,5 +2,16 @@ package dev.themajorones.autotest.dto.github;
 
 import java.util.List;
 
-public record GitHubArtifactsResponse(List<GitHubArtifactResponse> artifacts) {
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class GitHubArtifactsResponse {
+
+    private List<GitHubArtifactResponse> artifacts;
 }

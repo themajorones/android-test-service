@@ -70,9 +70,9 @@ public class GitHubApiClientImpl implements GitHubApiClient {
                 .headers(headers -> headers.setBearerAuth(accessToken))
                 .retrieve()
                 .body(GitHubWorkflowRunsResponse.class);
-            List<GitHubWorkflowRunResponse> pageItems = response == null || response.workflowRuns() == null
+            List<GitHubWorkflowRunResponse> pageItems = response == null || response.getWorkflowRuns() == null
                 ? List.of()
-                : response.workflowRuns();
+                : response.getWorkflowRuns();
             if (pageItems.isEmpty()) {
                 return workflowRuns;
             }
@@ -94,9 +94,9 @@ public class GitHubApiClientImpl implements GitHubApiClient {
                 .headers(headers -> headers.setBearerAuth(accessToken))
                 .retrieve()
                 .body(GitHubArtifactsResponse.class);
-            List<GitHubArtifactResponse> pageItems = response == null || response.artifacts() == null
+            List<GitHubArtifactResponse> pageItems = response == null || response.getArtifacts() == null
                 ? List.of()
-                : response.artifacts();
+                : response.getArtifacts();
             if (pageItems.isEmpty()) {
                 return artifacts;
             }
