@@ -1,6 +1,4 @@
-package dev.themajorones.autotest.dto.github;
-
-import java.util.List;
+package dev.themajorones.autotest.dto.rabbitmq;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -11,7 +9,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class GitHubArtifactsResponse {
+public class RabbitMqPublishRequest {
 
-    private List<GitHubArtifactResponse> artifacts;
+    private String routingKey;
+    private String message;
 }

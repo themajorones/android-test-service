@@ -3,13 +3,8 @@ spring:
     url: jdbc:sqlserver://wrapper:1533;databaseName=ats;encrypt=false;trustServerCertificate=true;
     username: sa
     password: Dat@bas3
-  security:
-    oauth2:
-      client:
-        registration:
-          github:
-            client-id: ${CLIENT_ID_DEV}
-            client-secret: ${CLIENT_SECRET_DEV}
+  rabbitmq:
+    port: 5673
 
 server:
   port: 6000

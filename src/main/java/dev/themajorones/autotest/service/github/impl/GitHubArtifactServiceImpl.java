@@ -114,10 +114,10 @@ public class GitHubArtifactServiceImpl implements GitHubArtifactService {
     }
 
     private GitHubWorkflowRun upsertRun(GitHubRepo repo, GitHubWorkflowRunResponse response, long syncedAt) {
-        Long githubRunId = requireId(response.id(), "GitHub workflow run id");
-        Long workflowId = requireId(response.workflowId(), "GitHub workflow id");
-        String headSha = requireText(response.headSha(), "GitHub workflow head SHA");
-        String status = requireText(response.status(), "GitHub workflow status");
+        Long githubRunId = requireId(response.getId(), "GitHub workflow run id");
+        Long workflowId = requireId(response.getWorkflowId(), "GitHub workflow id");
+        String headSha = requireText(response.getHeadSha(), "GitHub workflow head SHA");
+        String status = requireText(response.getStatus(), "GitHub workflow status");
 
         GitHubWorkflowRun run = gitHubWorkflowRunRepository.findByGithubRunId(githubRunId)
             .orElseGet(GitHubWorkflowRun::new);
@@ -132,10 +132,10 @@ public class GitHubArtifactServiceImpl implements GitHubArtifactService {
     }
 
     private GitHubArtifact upsertArtifact(GitHubRepo repo, GitHubWorkflowRun run, GitHubArtifactResponse response) {
-        Long githubArtifactId = requireId(response.id(), "GitHub artifact id");
-        String name = requireText(response.name(), "GitHub artifact name");
-        Long sizeInBytes = requireId(response.sizeInBytes(), "GitHub artifact size");
-        Long expiresAt = response.expiresAt() == null ? null : response.expiresAt().getEpochSecond();
+        Long githubArtifactId = requireId(response.getId(), "GitHub artifact id");
+        String name = requireText(response.getName(), "GitHub artifact name");
+        Long sizeInBytes = requireId(response.getSizeInBytes(), "GitHub artifact size");
+        Long expiresAt = response.getExpiresAt() == null ? null : response.getExpiresAt().getEpochSecond();
         if (expiresAt == null) {
             throw new IllegalStateException("GitHub artifact expiration timestamp is required");
         }
@@ -191,11 +191,11 @@ public class GitHubArtifactServiceImpl implements GitHubArtifactService {
     }
 
     private boolean matches(GitHubWorkflowRunResponse run, Long workflowId, String headSha) {
-        if (workflowId != null && !workflowId.equals(run.workflowId())) {
+        if (workflowId != null && !workflowId.equals(run.getWorkflowId())) {
             return false;
         }
         if (headSha != null && !headSha.isBlank()) {
-            return headSha.trim().equals(run.headSha());
+            return headSha.trim().equals(run.getHeadSha());
         }
         return true;
     }

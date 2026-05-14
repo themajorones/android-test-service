@@ -55,10 +55,10 @@ public class GitHubRepoSyncServiceImpl implements GitHubRepoSyncService {
     }
 
     private GitHubRepo syncRepository(GitHubRepoResponse response, long syncedAt) {
-        Long githubId = requireId(response.id(), "GitHub repository id");
-        String name = requireText(response.name(), "GitHub repository name");
-        String fullName = requireText(response.fullName(), "GitHub repository full name");
-        GitHubOwner owner = upsertOwner(response.owner(), syncedAt);
+        Long githubId = requireId(response.getId(), "GitHub repository id");
+        String name = requireText(response.getName(), "GitHub repository name");
+        String fullName = requireText(response.getFullName(), "GitHub repository full name");
+        GitHubOwner owner = upsertOwner(response.getOwner(), syncedAt);
 
         GitHubRepo repo = gitHubRepoRepository.findByGithubId(githubId)
             .or(() -> gitHubRepoRepository.findByFullName(fullName))
@@ -69,17 +69,17 @@ public class GitHubRepoSyncServiceImpl implements GitHubRepoSyncService {
             .setOwner(owner)
             .setName(name)
             .setFullName(fullName)
-            .setPrivateRepo(response.privateRepo()));
+            .setPrivateRepo(response.isPrivateRepo()));
     }
 
     private GitHubOwner upsertOwner(GitHubOwnerResponse response, long syncedAt) {
         if (response == null) {
             throw new IllegalStateException("GitHub repository owner is required");
         }
-        Long githubId = requireId(response.id(), "GitHub owner id");
-        String login = requireText(response.login(), "GitHub owner login");
-        String displayName = response.name() == null || response.name().isBlank() ? login : response.name().trim();
-        GitHubOwnerType type = "Organization".equalsIgnoreCase(response.type()) ? GitHubOwnerType.ORG : GitHubOwnerType.USER;
+        Long githubId = requireId(response.getId(), "GitHub owner id");
+        String login = requireText(response.getLogin(), "GitHub owner login");
+        String displayName = response.getName() == null || response.getName().isBlank() ? login : response.getName().trim();
+        GitHubOwnerType type = "Organization".equalsIgnoreCase(response.getType()) ? GitHubOwnerType.ORG : GitHubOwnerType.USER;
 
         GitHubOwner owner = gitHubOwnerRepository.findByGithubId(githubId)
             .or(() -> gitHubOwnerRepository.findByLogin(login))

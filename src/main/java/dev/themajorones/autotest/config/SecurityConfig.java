@@ -33,6 +33,7 @@ public class SecurityConfig {
                     "/actuator/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.POST, "/webhook/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/rabbitmq/messages").permitAll()
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth2 -> oauth2

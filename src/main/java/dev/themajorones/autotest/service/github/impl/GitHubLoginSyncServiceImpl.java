@@ -70,7 +70,7 @@ public class GitHubLoginSyncServiceImpl implements GitHubLoginSyncService {
         Set<Long> seenOrgIds = new HashSet<>();
         for (GitHubOwnerResponse organization : organizations == null ? List.<GitHubOwnerResponse>of() : organizations) {
             GitHubOwnerResponse orgResponse = requireOwnerResponse(organization, "GitHub organization");
-            if (!seenOrgIds.add(orgResponse.id())) {
+            if (!seenOrgIds.add(orgResponse.getId())) {
                 continue;
             }
 
@@ -83,10 +83,10 @@ public class GitHubLoginSyncServiceImpl implements GitHubLoginSyncService {
     }
 
     private GitHubOwner upsertOwner(GitHubOwnerResponse response, GitHubOwnerType fallbackType, long syncedAt) {
-        GitHubOwnerType ownerType = resolveOwnerType(response.type(), fallbackType);
-        String login = requireText(response.login(), "GitHub owner login");
-        Long githubId = requireId(response.id(), "GitHub owner id");
-        String displayName = response.name() == null || response.name().isBlank() ? login : response.name().trim();
+        GitHubOwnerType ownerType = resolveOwnerType(response.getType(), fallbackType);
+        String login = requireText(response.getLogin(), "GitHub owner login");
+        Long githubId = requireId(response.getId(), "GitHub owner id");
+        String displayName = response.getName() == null || response.getName().isBlank() ? login : response.getName().trim();
 
         GitHubOwner owner = gitHubOwnerRepository.findByGithubId(githubId)
             .or(() -> gitHubOwnerRepository.findByLogin(login))
