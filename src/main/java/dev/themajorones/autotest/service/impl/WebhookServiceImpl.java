@@ -6,10 +6,20 @@ import java.util.Map;
 import dev.themajorones.autotest.dto.webhook.ReCallWebhookRequest;
 import dev.themajorones.autotest.dto.webhook.ResultDTO;
 import dev.themajorones.autotest.service.WebhookService;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestClient;
+import tools.jackson.databind.JsonNode;
 
 @Service
 public class WebhookServiceImpl implements WebhookService {
+    private final RestClient restClient;
+
+    public WebhookServiceImpl(RestClient.Builder restClientBuilder) {
+        this.restClient = restClientBuilder.build();
+    }
 
     @Override
     public ResultDTO reCallWebhook(ReCallWebhookRequest request) throws Exception {
@@ -31,5 +41,24 @@ public class WebhookServiceImpl implements WebhookService {
                 replayData,
                 1
         );
+    }
+
+    @Override
+    public void passWebhookToWebservice(JsonNode payload, String serviceUrl) {
+        if (!StringUtils.hasText(serviceUrl)) {
+            throw new IllegalStateException("SERVICE_URL must be configured");
+        }
+
+        ResponseEntity<Void> response = restClient.post()
+                .uri(serviceUrl)
+                .headers(headers -> {
+                    headers.setContentType(MediaType.APPLICATION_JSON);
+                    
+                })
+                .body(payload)
+                .retrieve()
+                .toBodilessEntity();
+
+        System.out.println("Forwarded webhook to " + serviceUrl + " with status " + response.getStatusCode());
     }
 }
