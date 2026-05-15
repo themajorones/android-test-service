@@ -88,6 +88,7 @@ jobs:
       CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
       ENCRYPTION_PASSWORD: ${{ secrets.ENCRYPTION_PASSWORD }}
       ENCRYPTION_SALT: ${{ secrets.ENCRYPTION_SALT }}
+      HOST_ROOT_PASSWORD: ${{ secrets.HOST_ROOT_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
@@ -134,7 +135,7 @@ jobs:
         run: |
           set -euo pipefail
           # Kill any SSH connections using the app port
-          lsof -ti:${APP_PORT} | xargs kill -9 2>/dev/null || true
+          echo "${HOST_ROOT_PASSWORD}" | sudo -S lsof -ti:${APP_PORT} | xargs -r bash -c 'echo "${HOST_ROOT_PASSWORD}" | sudo -S kill -9 "$@" 2>/dev/null' _ || true
           # Give it a moment for connections to close
           sleep 2
 
