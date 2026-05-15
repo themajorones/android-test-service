@@ -119,17 +119,26 @@ jobs:
             --pull \
             --file .github/workflows/Dockerfile.dev \
             --build-arg WAR_FILE=server.war \
-            -t ats-app-dev:${GITHUB_SHA} \
-            -t ats-app-dev:latest \
+            -t ats-dev:${GITHUB_SHA} \
+            -t ats-dev:latest \
             .
+
+      - name: Close SSH connections and cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Kill any SSH connections using the app port
+          lsof -ti:${APP_PORT} | xargs kill -9 2>/dev/null || true
+          # Give it a moment for connections to close
+          sleep 2
 
       - name: Deploy Docker container
         shell: bash
         run: |
           set -euo pipefail
 
-          CONTAINER_NAME="ats-app-dev"
-          IMAGE_NAME="ats-app-dev:${GITHUB_SHA}"
+          CONTAINER_NAME="ats-dev"
+          IMAGE_NAME="ats-dev:${GITHUB_SHA}"
 
           docker rm -f "$CONTAINER_NAME" || true
 
@@ -161,5 +170,5 @@ jobs:
             fi
             sleep 2
           done
-          docker logs ats-app-dev --tail 200
+          docker logs ats-dev --tail 200
           exit 1
