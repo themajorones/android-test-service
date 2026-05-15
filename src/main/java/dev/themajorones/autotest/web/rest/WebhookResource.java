@@ -16,7 +16,7 @@ public class WebhookResource {
     private final WebhookService webhookService;
     private final String serviceUrl;
 
-    public WebhookResource(WebhookService webhookService, @Value("${DEV_HOSTNAME}") String serviceUrl) {
+    public WebhookResource(WebhookService webhookService, @Value("${DEV_HOSTNAME:}") String serviceUrl) {
         this.webhookService = webhookService;
         this.serviceUrl  = serviceUrl;
     }
