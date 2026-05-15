@@ -151,6 +151,9 @@
 				<version>${frontend-maven-plugin.version}</version>
 				<configuration>
 					<installDirectory>target</installDirectory>
+					<environmentVariables>
+						<NODE_ENV>development</NODE_ENV>
+					</environmentVariables>
 				</configuration>
 				<executions>
 					<execution>
