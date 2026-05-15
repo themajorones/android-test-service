@@ -151,9 +151,6 @@
 				<version>${frontend-maven-plugin.version}</version>
 				<configuration>
 					<installDirectory>target</installDirectory>
-					<environmentVariables>
-						<NODE_ENV>development</NODE_ENV>
-					</environmentVariables>
 				</configuration>
 				<executions>
 					<execution>
@@ -172,7 +169,7 @@
 							<goal>npm</goal>
 						</goals>
 						<configuration>
-							<arguments>ci</arguments>
+							<arguments>ci --include=dev</arguments>
 						</configuration>
 					</execution>
 					<execution>
