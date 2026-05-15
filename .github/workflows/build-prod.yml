@@ -167,6 +167,7 @@ jobs:
             -e CLIENT_SECRET \
             -e ENCRYPTION_PASSWORD \
             -e ENCRYPTION_SALT \
+            -e DEV_HOSTNAME \
             --restart unless-stopped \
             "$IMAGE_NAME"
 
