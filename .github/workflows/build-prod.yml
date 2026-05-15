@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 concurrency:
   group: build-deploy-prod
@@ -87,6 +88,7 @@ jobs:
       CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
       ENCRYPTION_PASSWORD: ${{ secrets.ENCRYPTION_PASSWORD }}
       ENCRYPTION_SALT: ${{ secrets.ENCRYPTION_SALT }}
+      HOST_ROOT_PASSWORD: ${{ secrets.HOST_ROOT_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
@@ -124,17 +126,26 @@ jobs:
             --pull \
             --file .github/workflows/Dockerfile.prod \
             --build-arg WAR_FILE=server.war \
-            -t ats-app:${GITHUB_SHA} \
-            -t ats-app:latest \
+            -t ats-prod:${GITHUB_SHA} \
+            -t ats-prod:latest \
             .
+
+      - name: Close SSH connections and cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Kill any SSH connections using the app port
+          echo "${HOST_ROOT_PASSWORD}" | sudo -S lsof -ti:${APP_PORT} | xargs -r bash -c 'echo "${HOST_ROOT_PASSWORD}" | sudo -S kill -9 "$@" 2>/dev/null' _ || true
+          # Give it a moment for connections to close
+          sleep 2
 
       - name: Deploy Docker container
         shell: bash
         run: |
           set -euo pipefail
 
-          CONTAINER_NAME="ats-app"
-          IMAGE_NAME="ats-app:${GITHUB_SHA}"
+          CONTAINER_NAME="ats-prod"
+          IMAGE_NAME="ats-prod:${GITHUB_SHA}"
 
           docker rm -f "$CONTAINER_NAME" || true
 
@@ -170,5 +181,5 @@ jobs:
             fi
             sleep 2
           done
-          docker logs ats-app --tail 200
+          docker logs ats-prod --tail 200
           exit 1
