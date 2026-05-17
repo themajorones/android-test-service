@@ -2,10 +2,13 @@ package dev.themajorones.autotest.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
 import dev.themajorones.autotest.security.CustomOAuth2FailureHandler;
 
@@ -20,7 +23,8 @@ public class SecurityConfig {
         CustomOAuth2FailureHandler failureHandler
     ) throws Exception {
 
-        http.csrf(csrf -> csrf.disable())
+        http.cors(cors -> cors.disable())
+            .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(
                     "/auth/**",
@@ -33,8 +37,13 @@ public class SecurityConfig {
                     "/actuator/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.POST, "/webhook/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/rabbitmq/messages").permitAll()
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(exceptionHandling -> exceptionHandling
+                .defaultAuthenticationEntryPointFor(
+                    new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                    PathPatternRequestMatcher.pathPattern("/api/**")
+                )
             )
             .oauth2Login(oauth2 -> oauth2
                 .successHandler(successHandler)

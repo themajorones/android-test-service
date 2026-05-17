@@ -14,7 +14,7 @@ concurrency:
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
   DEPLOY_PATH: /opt/ats
-  APP_PORT: 6000
+  APP_PORT: 8200
   SPRING_PROFILE: dev
 
 jobs:
@@ -152,6 +152,7 @@ jobs:
           docker run -d \
             --name "$CONTAINER_NAME" \
             -p "${APP_PORT}:${APP_PORT}" \
+            --add-host=wrapper:host-gateway \
             "${ENV_FILE_ARGS[@]}" \
             -e SPRING_PROFILES_ACTIVE="${SPRING_PROFILE}" \
             -e CLIENT_ID \
