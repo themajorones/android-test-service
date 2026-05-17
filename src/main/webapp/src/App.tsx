@@ -205,9 +205,15 @@ export function App() {
 
   async function submitAndroid(event: FormEvent) {
     event.preventDefault();
+    const selectedDockerId = androidForm.dockerId || docker[0]?.id;
+    const dockerId = Number(selectedDockerId);
+    if (!selectedDockerId || Number.isNaN(dockerId)) {
+      setStatus('Please select a Docker connection before saving the Android VM');
+      return;
+    }
     const payload = {
       ...androidForm,
-      dockerId: Number(androidForm.dockerId || docker[0]?.id),
+      dockerId,
     };
     if (editingAndroidId == null) {
       await sendJson('/api/connections/android', 'POST', payload);
