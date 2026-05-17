@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.amqp.rabbit.core.RabbitOperations;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -121,6 +120,18 @@ public class ConnectionManagerService {
         return androidVMRepository.findAllByOrderByIdDesc().stream().map(this::androidVmMap).toList();
     }
 
+    @Transactional
+    public Map<String, Object> updateAndroidVM(Integer id, CreateAndroidVMRequest request) {
+        AndroidVM vm = getAndroidVmEntity(id);
+        CreateAndroidVMRequest normalized = normalizeAndroidRequest(request);
+        vm
+            .setDocker(getDocker(requireId(normalized.getDockerId(), "Docker connection id")))
+            .setName(requireText(normalized.getName(), "Android VM name"))
+            .setImage(normalized.getImage())
+            .setAccelerationMode(normalized.getAccelerationMode());
+        return androidVmMap(androidVMRepository.save(vm));
+    }
+
     @Transactional(readOnly = true)
     public AndroidVMDetail getAndroidVM(Integer id) {
         AndroidVM vm = getAndroidVmEntity(id);
@@ -164,13 +175,13 @@ public class ConnectionManagerService {
     }
 
     @Transactional
-    public AndroidVM stopAndroidVM(Integer id) {
+    public Map<String, Object> stopAndroidVM(Integer id) {
         AndroidVM vm = getAndroidVmEntity(id);
         if (hasText(vm.getContainerId())) {
             dockerClient.stopContainer(vm.getDocker().getBaseUrl(), vm.getContainerId());
         }
         vm.setStatus(ConnectionStatusConstant.STOPPED);
-        return androidVMRepository.save(vm);
+        return androidVmMap(androidVMRepository.save(vm));
     }
 
     @Transactional
@@ -187,9 +198,17 @@ public class ConnectionManagerService {
         return taskLogRepository.findTop100ByOrderByIdDesc();
     }
 
-    @Scheduled(fixedDelay = 30_000, initialDelay = 5_000)
     @Transactional
-    public void refreshConnectionHealth() {
+    public Map<String, Object> refreshConnectionHealth() {
+        int ollamaCount = refreshOllamaHealth();
+        int dockerCount = refreshDockerHealth();
+        int androidCount = refreshAndroidHealth();
+        return Map.of("ollama", ollamaCount, "docker", dockerCount, "android", androidCount);
+    }
+
+    @Transactional
+    public int refreshOllamaHealth() {
+        int count = 0;
         for (Ollama ollama : ollamaRepository.findAllByEnabledTrue()) {
             try {
                 ollamaClient.isHealthy(ollama.getBaseUrl());
@@ -197,7 +216,14 @@ public class ConnectionManagerService {
             } catch (Exception ex) {
                 ollama.setStatus(ConnectionStatusConstant.UNHEALTHY);
             }
+            count++;
         }
+        return count;
+    }
+
+    @Transactional
+    public int refreshDockerHealth() {
+        int count = 0;
         for (Docker docker : dockerRepository.findAllByEnabledTrue()) {
             try {
                 applyDockerCapability(docker, dockerClient.capabilities(docker.getBaseUrl()));
@@ -205,10 +231,50 @@ public class ConnectionManagerService {
             } catch (Exception ex) {
                 docker.setStatus(ConnectionStatusConstant.UNHEALTHY);
             }
+            count++;
         }
+        return count;
+    }
+
+    @Transactional
+    public int refreshAndroidHealth() {
+        int count = 0;
         for (AndroidVM vm : androidVMRepository.findAll()) {
             refreshAndroidVmStatus(vm);
+            count++;
         }
+        return count;
+    }
+
+    @Transactional
+    public Ollama refreshOllamaHealth(Integer id) {
+        Ollama ollama = getOllama(id);
+        try {
+            ollamaClient.isHealthy(ollama.getBaseUrl());
+            ollama.setStatus(ConnectionStatusConstant.HEALTHY);
+        } catch (Exception ex) {
+            ollama.setStatus(ConnectionStatusConstant.UNHEALTHY);
+        }
+        return ollamaRepository.save(ollama);
+    }
+
+    @Transactional
+    public Docker refreshDockerHealth(Integer id) {
+        Docker docker = getDocker(id);
+        try {
+            applyDockerCapability(docker, dockerClient.capabilities(docker.getBaseUrl()));
+            docker.setStatus(ConnectionStatusConstant.HEALTHY);
+        } catch (Exception ex) {
+            docker.setStatus(ConnectionStatusConstant.UNHEALTHY);
+        }
+        return dockerRepository.save(docker);
+    }
+
+    @Transactional
+    public Map<String, Object> refreshAndroidHealth(Integer id) {
+        AndroidVM vm = getAndroidVmEntity(id);
+        refreshAndroidVmStatus(vm);
+        return androidVmMap(androidVMRepository.save(vm));
     }
 
     private void applyOllamaRequest(Ollama ollama, OllamaConnectionRequest request) {

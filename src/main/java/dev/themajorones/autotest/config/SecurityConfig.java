@@ -32,6 +32,7 @@ public class SecurityConfig {
                     "/login/**",
                     "/actuator/**"
                 ).permitAll()
+                .requestMatchers("/api/connections/**", "/api/task-logs").permitAll()
                 .requestMatchers(HttpMethod.POST, "/webhook/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/rabbitmq/messages").permitAll()
                 .anyRequest().authenticated()

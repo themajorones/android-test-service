@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { deleteResource, getJson, sendJson } from './api';
 
 type Tab = 'ollama' | 'docker' | 'android' | 'logs';
+type HealthTab = Exclude<Tab, 'logs'>;
 
 type Ollama = {
   id: number;
@@ -62,17 +63,28 @@ export function App() {
   const [android, setAndroid] = useState<AndroidVM[]>([]);
   const [logs, setLogs] = useState<TaskLog[]>([]);
   const [models, setModels] = useState<OllamaModel[]>([]);
+  const [lastHealthChecks, setLastHealthChecks] = useState<Record<HealthTab, Record<number, number>>>({
+    ollama: {},
+    docker: {},
+    android: {},
+  });
   const [selectedVmDetail, setSelectedVmDetail] = useState('');
   const [status, setStatus] = useState('Idle');
+
+  const [editingOllamaId, setEditingOllamaId] = useState<number | null>(null);
+  const [editingDockerId, setEditingDockerId] = useState<number | null>(null);
+  const [editingAndroidId, setEditingAndroidId] = useState<number | null>(null);
 
   const [ollamaForm, setOllamaForm] = useState({
     name: 'bigscreen',
     baseUrl: 'http://bigscreen:11434',
     model: '',
+    enabled: true,
   });
   const [dockerForm, setDockerForm] = useState({
     name: 'bigscreen',
     baseUrl: 'http://bigscreen:2375',
+    enabled: true,
   });
   const [androidForm, setAndroidForm] = useState({
     dockerId: '',
@@ -81,24 +93,79 @@ export function App() {
     accelerationMode: 'GUEST',
   });
 
-  async function refresh() {
-    const [nextOllama, nextDocker, nextAndroid, nextLogs] = await Promise.all([
-      getJson<Ollama[]>('/api/connections/ollama'),
-      getJson<Docker[]>('/api/connections/docker'),
-      getJson<AndroidVM[]>('/api/connections/android'),
-      getJson<TaskLog[]>('/api/task-logs'),
-    ]);
-    setOllama(nextOllama);
-    setDocker(nextDocker);
-    setAndroid(nextAndroid);
-    setLogs(nextLogs);
-  }
+  useEffect(() => {
+    loadAllLists().catch((error) => setStatus(message(error)));
+  }, []);
 
   useEffect(() => {
-    refresh().catch((error) => setStatus(message(error)));
-    const timer = window.setInterval(() => refresh().catch((error) => setStatus(message(error))), 30_000);
+    loadTab(tab).catch((error) => setStatus(message(error)));
+    const timer = window.setInterval(() => {
+      refreshTabHealth(tab)
+        .then(() => loadTab(tab))
+        .catch((error) => setStatus(message(error)));
+    }, 30_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [tab]);
+
+  async function loadAllLists() {
+    await Promise.allSettled([loadOllama(), loadDocker(), loadAndroid(), loadLogs()]);
+  }
+
+  async function loadTab(nextTab: Tab) {
+    if (nextTab === 'ollama') {
+      await loadOllama();
+    } else if (nextTab === 'docker') {
+      await loadDocker();
+    } else if (nextTab === 'android') {
+      await Promise.all([loadDocker(), loadAndroid()]);
+    } else {
+      await loadLogs();
+    }
+  }
+
+  async function refreshTabHealth(nextTab: Tab) {
+    if (nextTab === 'logs') {
+      return;
+    }
+    await sendJson(`/api/connections/${nextTab}/health`, 'POST');
+    markHealthChecked(nextTab);
+  }
+
+  async function loadOllama() {
+    setOllama(await getJson<Ollama[]>('/api/connections/ollama'));
+  }
+
+  async function loadDocker() {
+    setDocker(await getJson<Docker[]>('/api/connections/docker'));
+  }
+
+  async function loadAndroid() {
+    setAndroid(await getJson<AndroidVM[]>('/api/connections/android'));
+  }
+
+  async function loadLogs() {
+    setLogs(await getJson<TaskLog[]>('/api/task-logs'));
+  }
+
+  function markHealthChecked(nextTab: HealthTab) {
+    const rows = nextTab === 'ollama' ? ollama : nextTab === 'docker' ? docker : android;
+    const checkedAt = Date.now();
+    setLastHealthChecks((current) => ({
+      ...current,
+      [nextTab]: rows.reduce<Record<number, number>>((checks, row) => {
+        checks[row.id] = checkedAt;
+        return checks;
+      }, { ...current[nextTab] }),
+    }));
+  }
+
+  function withLastHealthCheckedAt<T extends { id: number }>(rows: T[], nextTab: HealthTab) {
+    const checks = lastHealthChecks[nextTab];
+    return rows.map((row) => ({
+      ...row,
+      lastHealthCheckedAt: checks[row.id],
+    }));
+  }
 
   async function fetchOllamaModels() {
     setStatus('Fetching Ollama models');
@@ -106,50 +173,120 @@ export function App() {
       baseUrl: ollamaForm.baseUrl,
     });
     setModels(nextModels);
-    setOllamaForm((current) => ({ ...current, model: current.model || nextModels[0]?.name || '' }));
+    setOllamaForm((current) => ({
+      ...current,
+      model: nextModels.some((model) => model.name === current.model) ? current.model : nextModels[0]?.name || '',
+    }));
     setStatus(`Loaded ${nextModels.length} models`);
   }
 
   async function submitOllama(event: FormEvent) {
     event.preventDefault();
-    await sendJson<Ollama>('/api/connections/ollama', 'POST', ollamaForm);
-    setModels([]);
-    await refresh();
+    const path = editingOllamaId == null ? '/api/connections/ollama' : `/api/connections/ollama/${editingOllamaId}`;
+    const method = editingOllamaId == null ? 'POST' : 'PUT';
+    await sendJson<Ollama>(path, method, ollamaForm);
+    resetOllamaForm();
+    await loadOllama();
     setStatus('Ollama connection saved');
   }
 
   async function submitDocker(event: FormEvent) {
     event.preventDefault();
-    await sendJson<Docker>('/api/connections/docker', 'POST', dockerForm);
-    await refresh();
+    const path = editingDockerId == null ? '/api/connections/docker' : `/api/connections/docker/${editingDockerId}`;
+    const method = editingDockerId == null ? 'POST' : 'PUT';
+    await sendJson<Docker>(path, method, dockerForm);
+    resetDockerForm();
+    await loadDocker();
     setStatus('Docker connection saved');
   }
 
   async function submitAndroid(event: FormEvent) {
     event.preventDefault();
-    await sendJson('/api/connections/android', 'POST', {
+    const payload = {
       ...androidForm,
       dockerId: Number(androidForm.dockerId || docker[0]?.id),
+    };
+    if (editingAndroidId == null) {
+      await sendJson('/api/connections/android', 'POST', payload);
+      setStatus('Android VM creation queued');
+    } else {
+      await sendJson(`/api/connections/android/${editingAndroidId}`, 'PUT', payload);
+      setStatus('Android VM saved');
+    }
+    resetAndroidForm();
+    await loadAndroid();
+    await loadLogs();
+  }
+
+  function editOllama(row: Ollama) {
+    setEditingOllamaId(row.id);
+    setOllamaForm({
+      name: row.name,
+      baseUrl: row.baseUrl,
+      model: row.model,
+      enabled: row.enabled,
     });
-    await refresh();
-    setStatus('Android VM creation queued');
+    setModels([{ name: row.model, model: row.model, size: 0 }]);
+    setStatus('Editing Ollama connection');
+  }
+
+  function editDocker(row: Docker) {
+    setEditingDockerId(row.id);
+    setDockerForm({
+      name: row.name,
+      baseUrl: row.baseUrl,
+      enabled: row.enabled,
+    });
+    setStatus('Editing Docker connection');
+  }
+
+  function editAndroid(row: AndroidVM) {
+    setEditingAndroidId(row.id);
+    setAndroidForm({
+      dockerId: String(row.dockerId),
+      name: row.name,
+      image: row.image,
+      accelerationMode: row.accelerationMode,
+    });
+    setStatus('Editing Android VM');
   }
 
   async function stopVm(id: number) {
     await sendJson(`/api/connections/android/${id}/stop`, 'POST');
-    await refresh();
+    await loadAndroid();
     setStatus('Android VM stopped');
   }
 
   async function deleteVm(id: number) {
     await deleteResource(`/api/connections/android/${id}`);
-    await refresh();
+    await loadAndroid();
     setStatus('Android VM deleted');
   }
 
   async function loadVmDetail(id: number) {
     const detail = await getJson<unknown>(`/api/connections/android/${id}`);
     setSelectedVmDetail(JSON.stringify(detail, null, 2));
+  }
+
+  function resetOllamaForm() {
+    setEditingOllamaId(null);
+    setModels([]);
+    setOllamaForm({ name: 'bigscreen', baseUrl: 'http://bigscreen:11434', model: '', enabled: true });
+  }
+
+  function resetDockerForm() {
+    setEditingDockerId(null);
+    setDockerForm({ name: 'bigscreen', baseUrl: 'http://bigscreen:2375', enabled: true });
+  }
+
+  function resetAndroidForm() {
+    setEditingAndroidId(null);
+    setAndroidForm({
+      dockerId: '',
+      name: 'redroid-1',
+      image: 'redroid/redroid:15.0.0_64only-latest',
+      accelerationMode: 'GUEST',
+    });
   }
 
   return (
@@ -161,9 +298,14 @@ export function App() {
         </div>
         <div className="button-row">
           <a className="button-link" href="/oauth2/authorization/github">Sign in</a>
-          <button type="button" onClick={() => refresh().then(() => setStatus('Refreshed'))}>
-            Refresh
+          <button type="button" onClick={() => loadTab(tab).then(() => setStatus('Loaded from database'))}>
+            Load list
           </button>
+          {tab !== 'logs' && (
+            <button type="button" onClick={() => refreshTabHealth(tab).then(() => loadTab(tab)).then(() => setStatus('Health checked'))}>
+              Check health
+            </button>
+          )}
         </div>
       </header>
 
@@ -196,23 +338,31 @@ export function App() {
               <select value={ollamaForm.model} onChange={(event) => setOllamaForm({ ...ollamaForm, model: event.target.value })}>
                 <option value="">Select model</option>
                 {models.map((model) => (
-                  <option key={model.name} value={model.name}>
-                    {model.name}
-                  </option>
+                  <option key={model.name} value={model.name}>{model.name}</option>
                 ))}
               </select>
             </label>
+            <label className="checkbox-label">
+              <input
+                checked={ollamaForm.enabled}
+                type="checkbox"
+                onChange={(event) => setOllamaForm({ ...ollamaForm, enabled: event.target.checked })}
+              />
+              Enabled
+            </label>
             <div className="button-row">
               <button type="button" onClick={() => fetchOllamaModels().catch((error) => setStatus(message(error)))}>
-                Fetch models
+                Refresh models
               </button>
-              <button type="submit">Save Ollama</button>
+              <button type="submit">{editingOllamaId == null ? 'Save Ollama' : 'Update Ollama'}</button>
+              {editingOllamaId != null && <button type="button" onClick={resetOllamaForm}>Cancel</button>}
             </div>
           </form>
           <DataTable
-            rows={ollama}
-            columns={['name', 'baseUrl', 'model', 'status', 'enabled']}
-            onDelete={(row) => deleteResource(`/api/connections/ollama/${row.id}`).then(refresh)}
+            rows={withLastHealthCheckedAt(ollama, 'ollama')}
+            columns={['name', 'baseUrl', 'model', 'status', 'lastHealthCheckedAt', 'enabled']}
+            onEdit={editOllama}
+            onDelete={(row) => deleteResource(`/api/connections/ollama/${row.id}`).then(loadOllama)}
           />
         </section>
       )}
@@ -228,14 +378,24 @@ export function App() {
               Base URL
               <input value={dockerForm.baseUrl} onChange={(event) => setDockerForm({ ...dockerForm, baseUrl: event.target.value })} />
             </label>
+            <label className="checkbox-label">
+              <input
+                checked={dockerForm.enabled}
+                type="checkbox"
+                onChange={(event) => setDockerForm({ ...dockerForm, enabled: event.target.checked })}
+              />
+              Enabled
+            </label>
             <div className="button-row">
-              <button type="submit">Save Docker</button>
+              <button type="submit">{editingDockerId == null ? 'Save Docker' : 'Update Docker'}</button>
+              {editingDockerId != null && <button type="button" onClick={resetDockerForm}>Cancel</button>}
             </div>
           </form>
           <DataTable
-            rows={docker}
-            columns={['name', 'baseUrl', 'status', 'apiVersion', 'os', 'arch', 'nvidiaRuntimeAvailable']}
-            onDelete={(row) => deleteResource(`/api/connections/docker/${row.id}`).then(refresh)}
+            rows={withLastHealthCheckedAt(docker, 'docker')}
+            columns={['name', 'baseUrl', 'status', 'lastHealthCheckedAt', 'apiVersion', 'os', 'arch', 'nvidiaRuntimeAvailable']}
+            onEdit={editDocker}
+            onDelete={(row) => deleteResource(`/api/connections/docker/${row.id}`).then(loadDocker)}
           />
         </section>
       )}
@@ -247,9 +407,7 @@ export function App() {
               Docker
               <select value={androidForm.dockerId || docker[0]?.id || ''} onChange={(event) => setAndroidForm({ ...androidForm, dockerId: event.target.value })}>
                 {docker.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
+                  <option key={item.id} value={item.id}>{item.name}</option>
                 ))}
               </select>
             </label>
@@ -270,13 +428,15 @@ export function App() {
               </select>
             </label>
             <div className="button-row">
-              <button type="submit">Create Android VM</button>
+              <button type="submit">{editingAndroidId == null ? 'Create Android VM' : 'Update Android VM'}</button>
+              {editingAndroidId != null && <button type="button" onClick={resetAndroidForm}>Cancel</button>}
             </div>
           </form>
           <DataTable
-            rows={android}
-            columns={['name', 'dockerName', 'image', 'status', 'adbHost', 'adbPort', 'accelerationMode']}
+            rows={withLastHealthCheckedAt(android, 'android')}
+            columns={['name', 'dockerName', 'image', 'status', 'lastHealthCheckedAt', 'adbHost', 'adbPort', 'accelerationMode']}
             onDetail={(row) => loadVmDetail(row.id).catch((error) => setStatus(message(error)))}
+            onEdit={editAndroid}
             onStop={(row) => stopVm(row.id).catch((error) => setStatus(message(error)))}
             onDelete={(row) => deleteVm(row.id).catch((error) => setStatus(message(error)))}
           />
@@ -300,12 +460,14 @@ function DataTable<T extends { id: number }>({
   columns,
   onDelete,
   onDetail,
+  onEdit,
   onStop,
 }: {
   rows: T[];
   columns: string[];
   onDelete?: (row: T) => void;
   onDetail?: (row: T) => void;
+  onEdit?: (row: T) => void;
   onStop?: (row: T) => void;
 }) {
   return (
@@ -314,17 +476,23 @@ function DataTable<T extends { id: number }>({
         <thead>
           <tr>
             {columns.map((column) => <th key={column}>{column}</th>)}
-            {(onDelete || onDetail || onStop) && <th>actions</th>}
+            {(onDelete || onDetail || onEdit || onStop) && <th>actions</th>}
           </tr>
         </thead>
         <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={columns.length + 1}>No records loaded.</td>
+            </tr>
+          )}
           {rows.map((row) => (
             <tr key={row.id}>
               {columns.map((column) => <td key={column}>{cellValue(row, column)}</td>)}
-              {(onDelete || onDetail || onStop) && (
+              {(onDelete || onDetail || onEdit || onStop) && (
                 <td>
                   <div className="table-actions">
                     {onDetail && <button type="button" onClick={() => onDetail(row)}>Detail</button>}
+                    {onEdit && <button type="button" onClick={() => onEdit(row)}>Edit</button>}
                     {onStop && <button type="button" onClick={() => onStop(row)}>Stop</button>}
                     {onDelete && <button type="button" onClick={() => onDelete(row)}>Delete</button>}
                   </div>
@@ -341,7 +509,7 @@ function DataTable<T extends { id: number }>({
 function cellValue(row: Record<string, unknown>, column: string) {
   const value = row[column];
   if (value === undefined || value === null || value === '') {
-    return '—';
+    return '-';
   }
   if (typeof value === 'boolean') {
     return value ? 'yes' : 'no';
@@ -350,7 +518,7 @@ function cellValue(row: Record<string, unknown>, column: string) {
     return new Date(value).toLocaleString();
   }
   const text = String(value);
-  return text.length > 140 ? `${text.slice(0, 140)}…` : text;
+  return text.length > 140 ? `${text.slice(0, 140)}...` : text;
 }
 
 function label(tab: Tab) {
