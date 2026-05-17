@@ -152,6 +152,7 @@ jobs:
           docker run -d \
             --name "$CONTAINER_NAME" \
             -p "${APP_PORT}:${APP_PORT}" \
+            --add-host=wrapper:host-gateway \
             "${ENV_FILE_ARGS[@]}" \
             -e SPRING_PROFILES_ACTIVE="${SPRING_PROFILE}" \
             -e CLIENT_ID \
