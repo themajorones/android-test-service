@@ -99,13 +99,16 @@ export function App() {
 
   useEffect(() => {
     loadTab(tab).catch((error) => setStatus(message(error)));
+  }, [tab]);
+
+  useEffect(() => {
     const timer = window.setInterval(() => {
       refreshTabHealth(tab)
         .then(() => loadTab(tab))
         .catch((error) => setStatus(message(error)));
     }, 30_000);
     return () => window.clearInterval(timer);
-  }, [tab]);
+  }, [tab, ollama, docker, android]);
 
   async function loadAllLists() {
     await Promise.allSettled([loadOllama(), loadDocker(), loadAndroid(), loadLogs()]);
