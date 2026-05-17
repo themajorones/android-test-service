@@ -5,10 +5,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/auth': 'http://localhost:7000',
-      '/health': 'http://localhost:7000',
-      '/oauth2': 'http://localhost:7000',
-      '/login': 'http://localhost:7000',
+      '/auth': 'http://localhost:8200',
+      '/health': 'http://localhost:8200',
+      '/oauth2': 'http://localhost:8200',
+      '/login': 'http://localhost:8200',
+      '/api': 'http://localhost:8200',
     },
   },
   build: {

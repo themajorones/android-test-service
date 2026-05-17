@@ -7,4 +7,4 @@ spring:
     port: 5673
 
 server:
-  port: 6000
+  port: 8200

@@ -14,7 +14,7 @@ concurrency:
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
   DEPLOY_PATH: /opt/ats
-  APP_PORT: 6000
+  APP_PORT: 8200
   SPRING_PROFILE: dev
 
 jobs:
