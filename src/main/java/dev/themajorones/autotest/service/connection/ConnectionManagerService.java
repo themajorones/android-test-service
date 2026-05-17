@@ -46,7 +46,7 @@ public class ConnectionManagerService {
     private final OllamaClient ollamaClient;
     private final DockerClient dockerClient;
     private final RabbitOperations rabbitOperations;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public List<Ollama> listOllama() {
