@@ -58,14 +58,21 @@ public class AndroidResource {
         return service.refreshAndroidHealth(id);
     }
 
-    @PostMapping("/api/connections/health")
-    public Map<String, Object> refreshAllHealth() {
-        return service.refreshConnectionHealth();
-    }
-
     @DeleteMapping("/api/connections/android/{id}")
     public ResponseEntity<Void> deleteAndroidVM(@PathVariable Integer id) {
         service.deleteAndroidVM(id);
         return ResponseEntity.noContent().build();
+    }
+}
+
+@RestController
+@RequiredArgsConstructor
+class ConnectionsResource {
+
+    private final ConnectionManagerService service;
+
+    @PostMapping("/api/connections/health")
+    public Map<String, Object> refreshAllHealth() {
+        return service.refreshConnectionHealth();
     }
 }
