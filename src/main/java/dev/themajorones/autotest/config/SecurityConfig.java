@@ -1,11 +1,16 @@
 package dev.themajorones.autotest.config;
 
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import dev.themajorones.autotest.security.CustomOAuth2FailureHandler;
 
@@ -20,7 +25,8 @@ public class SecurityConfig {
         CustomOAuth2FailureHandler failureHandler
     ) throws Exception {
 
-        http.csrf(csrf -> csrf.disable())
+        http.cors(cors -> {})
+            .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(
                     "/auth/**",
@@ -43,5 +49,19 @@ public class SecurityConfig {
             );
 
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration apiCors = new CorsConfiguration();
+        apiCors.setAllowedOriginPatterns(List.of("*"));
+        apiCors.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        apiCors.setAllowedHeaders(List.of("*"));
+        apiCors.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/connections/**", apiCors);
+        source.registerCorsConfiguration("/api/task-logs", apiCors);
+        return source;
     }
 }
